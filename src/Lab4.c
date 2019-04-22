@@ -9,6 +9,7 @@
 void waitChilds();
 void createFile(int);
 void deleteFiles();
+int checkTree();
 
 int main() 
 {
@@ -76,14 +77,32 @@ int main()
             }
         }
         else
+        {
+            while(!checkTree());
             waitChilds();
+        }
         //for(;;);
     }
     else if(pid > 0)
+    {
         wait(NULL);
-    deleteFiles();
+        deleteFiles();
+    }
     return 0;
 }
+int checkTree()
+{
+    char path[30];
+    FILE *f;
+    for (int i = 1; i <= 8; i++)
+    {
+        snprintf(path, sizeof(path), "/tmp/Lab4/%d.txt",i);
+        if((f = fopen(path, "r")) == NULL)
+            return 0;
+    }
+    return 1;
+}
+
 void waitChilds()
 {
     int wpid;
@@ -104,10 +123,10 @@ void createFile(int i)
 void deleteFiles()
 {
     char path[30];
-    for (size_t i = 1; i <= 8; i++)
+    for (int i = 1; i <= 8; i++)
     {
         snprintf(path, sizeof(path), "/tmp/Lab4/%d.txt",i);
         remove(path);
     }
-    
+    exit(0);
 }
