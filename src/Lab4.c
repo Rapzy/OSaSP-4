@@ -5,9 +5,15 @@
 #include "unistd.h"
 #include "libgen.h"
 #include "ctype.h"
+#include "sys/time.h"
 
 //1->2; 2->(3,4); 4->5; 3->6; 6->7; 7->8;
 //1->(8,7) SIGUSR1; 8->(6,5) SIGUSR1; 5->(4,3,2) SIGUSR2; 2->1 SIGUSR2;
+typedef struct {
+        long tv_sec;
+        long tv_usec;
+    } timeval;
+
 void waitChilds();
 void createFile(int);
 void deleteFiles();
@@ -17,10 +23,11 @@ void getSignal(int);
 long getTime();
 
 char *progname;
-int procNum;
+int procNum, lastSender;
 
 int main(int argc, char *argv[]) 
 {
+    argc += 0;
     progname = basename(argv[0]);
     signal(SIGINT, deleteFiles);
     pid_t pid = fork();
@@ -38,10 +45,11 @@ int main(int argc, char *argv[])
                 pid = fork();
                 if(pid==0)//5
                 {
+                    procNum = 5;
+                    signal(SIGUSR1, getSignal);
+                    setpgrp();
                     createFile(5);
                 }
-                else
-                    waitChilds();
             }
             else if(pid > 0)
             {
@@ -55,6 +63,9 @@ int main(int argc, char *argv[])
                     pid = fork();
                     if (pid==0)//6
                     {
+                        procNum = 6;
+                        signal(SIGUSR1, getSignal);
+                        setpgrp();
                         createFile(6);
                         pid = fork();
                         if(pid==0)//7
@@ -67,29 +78,22 @@ int main(int argc, char *argv[])
                             if(pid==0)//8
                             {
                                 procNum = 8;
-                                signal(SIGUSR1, getSignal);
                                 createFile(8);
                             }
                         }
-                        else 
-                            waitChilds();
                     }
-                    else
-                        waitChilds();
-                    waitChilds();
                 }
-                waitChilds();
             }
         }
         else
         {
             while(!checkTree());
             procNum = 1;
+            lastSender = 1;
             killpg(readPid(7), SIGUSR1);
-            printf("%d %d %d послал USR1 %ld\n", procNum, getpid(), getppid(), getTime());
-            waitChilds();
+            printf("%d %d %d послал USR1 %ld.\n", procNum, getpid(), getppid(), getTime());
         }
-        //for(;;);
+        for(;;);
     }
     else if(pid > 0)
     {
@@ -106,7 +110,7 @@ void getSignal(int sig)
         sigName[i] = toupper((unsigned char) sigName[i]);
         i++;
     }
-    printf("%d %d %d получил %s %ld\n", procNum, getpid(), getppid(), sigName, getTime());
+    printf("%d %d %d получил %s %ld.\n", procNum, getpid(), getppid(), sigName, getTime());
 }
 int checkTree()
 {
@@ -153,10 +157,7 @@ int readPid(int num)
 void waitChilds()
 {
     int wpid;
-    while((wpid = wait(NULL)) > 0)
-    {
-        //printf("WAIT %d\n", wpid);
-    }
+    while((wpid = wait(NULL)) > 0);
 }
 void createFile(int i)
 {
