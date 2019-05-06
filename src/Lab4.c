@@ -24,6 +24,7 @@ long getTime();
 
 char *progname;
 int procNum, lastSender;
+int sigCount = 0;
 
 int main(int argc, char *argv[]) 
 {
@@ -31,51 +32,64 @@ int main(int argc, char *argv[])
     progname = basename(argv[0]);
     signal(SIGINT, deleteFiles);
     pid_t pid = fork();
-    if(pid == 0)//1
+    //create 1 process
+    if(pid == 0)
     {
+        procNum = 1;
         createFile(1);
+        setpgrp();
+        signal(SIGUSR2, getSignal);
         pid = fork();
-        if(pid == 0)//2
+        //create 2 process
+        if(pid == 0)
         {
+            procNum = 2;
             createFile(2);
+            setpgrp();
             pid = fork();
-            if(pid==0)//4
+            //create 4 process
+            if(pid==0)
             {
                 createFile(4);
                 pid = fork();
-                if(pid==0)//5
+                //create 5 process
+                if(pid==0)
                 {
                     procNum = 5;
                     signal(SIGUSR1, getSignal);
-                    setpgrp();
                     createFile(5);
+                    setpgrp(); //Set 5 gpid = pid5
                 }
             }
             else if(pid > 0)
             {
                 pid = fork();
-                if(pid==0)//3
+                //create 3 process
+                if(pid==0)
                 {
+                    procNum = 3;
                     createFile(3);
                 }
                 else
                 {
                     pid = fork();
-                    if (pid==0)//6
+                    //create 6 process
+                    if (pid==0)
                     {
                         procNum = 6;
                         signal(SIGUSR1, getSignal);
-                        setpgrp();
                         createFile(6);
                         pid = fork();
-                        if(pid==0)//7
+                        //create 7 process
+                        if(pid==0)
                         {
                             procNum = 7;
                             signal(SIGUSR1, getSignal);
-                            setpgrp();
+                            setpgrp(); //Set 7 gpid = pid7
                             createFile(7);
                             pid = fork();
-                            if(pid==0)//8
+                            //create 8 process
+                            if(pid==0)
                             {
                                 procNum = 8;
                                 createFile(8);
@@ -89,7 +103,11 @@ int main(int argc, char *argv[])
         {
             while(!checkTree());
             procNum = 1;
-            lastSender = 1;
+            setpgid(readPid(6), readPid(5)); //Set 6 gpid = pid5
+            // for (int i = 1; i <= 8; i++)
+            // {
+            //     printf("%d %d\n", i,getpgid(readPid(i)));
+            // }
             killpg(readPid(7), SIGUSR1);
             printf("%d %d %d послал USR1 %ld.\n", procNum, getpid(), getppid(), getTime());
         }
@@ -110,8 +128,39 @@ void getSignal(int sig)
         sigName[i] = toupper((unsigned char) sigName[i]);
         i++;
     }
-    printf("%d %d %d получил %s %ld.\n", procNum, getpid(), getppid(), sigName, getTime());
+    pid_t pid = getpid();
+    printf("%d %d %d получил %s %ld.\n", procNum, pid, getppid(), sigName, getTime());
+    switch (procNum)
+    {
+    case 1:
+        if(sigCount == 100)
+        {
+            for (int i = 1; i <= 8; i++)
+            {
+                kill(readPid(i), SIGTERM);
+            }
+            
+        }
+        sigCount++;
+        killpg(readPid(7), SIGUSR1);
+        printf("%d %d %d послал USR1 %ld.\n", procNum, pid, getppid(), getTime());
+        break;
+    case 2:
+        killpg(readPid(1), SIGUSR2);
+        printf("%d %d %d послал USR2 %ld.\n", procNum, pid, getppid(), getTime());
+        break;
+    case 5:
+        killpg(readPid(2), SIGUSR2);
+        printf("%d %d %d послал USR2 %ld.\n", procNum, pid, getppid(), getTime());
+        break;
+    case 8:
+        killpg(readPid(5), SIGUSR1);
+        printf("%d %d %d послал USR1 %ld.\n", procNum, pid, getppid(), getTime());
+    default:
+        break;
+    }
 }
+
 int checkTree()
 {
     char path[30];
